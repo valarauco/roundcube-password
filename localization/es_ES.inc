@@ -25,7 +25,13 @@ $labels['passwordinconsistency'] = 'Las contraseñas no coinciden. Por favor, in
 $labels['crypterror'] = 'No se pudo guardar la contraseña nueva. Falta la función de cifrado.';
 $labels['connecterror'] = 'No se pudo guardar la contraseña nueva. Error de conexión';
 $labels['internalerror'] = 'No se pudo guardar la contraseña nueva.';
-$labels['passwordshort'] = 'La contraseña debe tener por lo menos $length caracteres.';
-$labels['passwordweak'] = 'La contraseña debe incluir al menos un número y un signo de puntuación.';
+$labels['passwordshort'] = 'La nueva contraseña debe tener $length caracteres o más.';
+$labels['passwordweak'] = 'La nueva contraseña debe incluir al menos un número y un signo de puntuación.';
 $labels['passwordforbidden'] = 'La contraseña introducida contiene caracteres no permitidos.';
+//Valarauco
+$labels['restrictions'] = 'Para cambiar la contraseña debe cumplir lo siguiente:';
+$labels['passwordconfirm_current'] = 'Debe introducir la contraseña actual.';
+$labels['passwordexample'] = 'Ejemplo de contraseña válida: ';
+$labels['passwordexampleerror'] = 'Por favor no utilice el ejemplo como contraseña.';
+$labels['passwordsaved'] = 'Contraseña guardada.';
 

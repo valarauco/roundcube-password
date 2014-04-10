@@ -74,6 +74,7 @@ class password extends rcube_plugin
         $this->register_action('plugin.password', array($this, 'password_init'));
         $this->register_action('plugin.password-save', array($this, 'password_save'));
         $this->include_script('password.js');
+	    $this->include_stylesheet("password.css");
     }
 
     function password_init()
@@ -85,19 +86,15 @@ class password extends rcube_plugin
         $rcmail->output->set_pagetitle($this->gettext('changepasswd'));
         $rcmail->output->send('plugin');
     }
-
-    function password_save()
-    {
+    
+    function password_save_mech(){
         $rcmail = rcmail::get_instance();
-
         $this->add_texts('localization/');
-        $this->register_handler('plugin.body', array($this, 'password_form'));
-        $rcmail->output->set_pagetitle($this->gettext('changepasswd'));
-
+        
         $confirm = $rcmail->config->get('password_confirm_current');
         $required_length = intval($rcmail->config->get('password_minimum_length'));
         $check_strength = $rcmail->config->get('password_require_nonalpha');
-
+        
         if (($confirm && !isset($_POST['_curpasswd'])) || !isset($_POST['_newpasswd'])) {
             $rcmail->output->command('display_message', $this->gettext('nopassword'), 'error');
         }
@@ -123,6 +120,9 @@ class password extends rcube_plugin
             $newpwd = rcube_charset_convert($newpwd, $rc_charset, $charset);
             $conpwd = rcube_charset_convert($conpwd, $rc_charset, $charset);
 
+            $show_example = $rcmail->config->get('password_show_example');
+            $example = $rcmail->config->get('password_example');
+
             if ($chk_pwd != $orig_pwd) {
                 $rcmail->output->command('display_message', $this->gettext('passwordforbidden'), 'error');
             }
@@ -133,6 +133,9 @@ class password extends rcube_plugin
             else if ($confirm && $sespwd != $curpwd) {
                 $rcmail->output->command('display_message', $this->gettext('passwordincorrect'), 'error');
             }
+            else if ($show_example && $newpwd == $example) {
+              $rcmail->output->command('display_message', $this->gettext('passwordexampleerror'), 'error');
+            }
             else if ($required_length && strlen($newpwd) < $required_length) {
                 $rcmail->output->command('display_message', $this->gettext(
 	                array('name' => 'passwordshort', 'vars' => array('length' => $required_length))), 'error');
@@ -142,11 +145,17 @@ class password extends rcube_plugin
             }
             // password is the same as the old one, do nothing, return success
             else if ($sespwd == $newpwd) {
-                $rcmail->output->command('display_message', $this->gettext('successfullysaved'), 'confirmation');
+                $rcmail->output->command('display_message', $this->gettext('passwordsaved'), 'confirmation', 10000);
+                // Log password change
+                if ($rcmail->config->get('password_log')) {
+                    write_log('password', sprintf('Password same as current for user %s (ID: %d) from %s',
+                        $rcmail->user->get_username(), $rcmail->user->ID, rcmail_remote_ip()));
+                }
+                return true;//$rcmail->output->set_env('passwordsaved', true);
             }
             // try to save the password
             else if (!($res = $this->_save($curpwd, $newpwd))) {
-                $rcmail->output->command('display_message', $this->gettext('successfullysaved'), 'confirmation');
+                $rcmail->output->command('display_message', $this->gettext('passwordsaved'), 'confirmation', 10000);
 
                 // allow additional actions after password change (e.g. reset some backends)
                 $plugin = $rcmail->plugins->exec_hook('password_change', array(
@@ -160,10 +169,26 @@ class password extends rcube_plugin
                     write_log('password', sprintf('Password changed for user %s (ID: %d) from %s',
                         $rcmail->user->get_username(), $rcmail->user->ID, rcmail_remote_ip()));
                 }
+                return true;//$rcmail->output->set_env('passwordsaved', true);
+                
             }
             else {
                 $rcmail->output->command('display_message', $res, 'error');
             }
+        }
+        return false;
+    }
+
+    function password_save()
+    {
+        $rcmail = rcmail::get_instance();
+
+        $this->add_texts('localization/');
+        $this->register_handler('plugin.body', array($this, 'password_form'));
+        $rcmail->output->set_pagetitle($this->gettext('changepasswd'));
+
+        if ($this->password_save_mech()) {
+          $rcmail->output->set_env('passwordsaved', true);
         }
 
         rcmail_overwrite_action('plugin.password');
@@ -211,9 +236,40 @@ class password extends rcube_plugin
         $table->add('title', html::label($field_id, Q($this->gettext('confpasswd'))));
         $table->add(null, $input_confpasswd->show());
 
+	      // Restrictions
+	      $restricts = '';
+	      $confirm = $rcmail->config->get('password_confirm_current');
+          $required_length = intval($rcmail->config->get('password_minimum_length'));
+          $check_strength = $rcmail->config->get('password_require_nonalpha');
+          $show_example = $rcmail->config->get('password_show_example');
+        
+	      if ($confirm) {
+	        $restricts .= html::tag('li', array(), $this->gettext('passwordconfirm_current'));
+	      }
+	      if ($required_length > 0) {
+	        $restricts .= html::tag('li', array(), $this->gettext(
+	          array('name' => 'passwordshort', 'vars' => array('length' => $required_length))));
+	      }
+	      if ($check_strength) {
+	        $restricts .= html::tag('li', array(), $this->gettext('passwordweak'));
+	      }
+	      if (strlen($restricts) > 0) {
+	        $info = html::p(array('class' => 'passwdrestrict'), $this->gettext('restrictions'));
+	        $restricts = $info . html::tag('ul', array('class' => 'passwdrestrict'), $restricts);
+	      }
+	      if ($show_example) {
+	        $example = '<strong>'.$rcmail->config->get('password_example').'</strong>';
+	        $restricts .= html::p(array('class' => 'passwdhint'), $this->gettext('passwordexample').$example);
+	      }
+	      
+	      $passwordsaved = '';
+	      if ($rcmail->output->env['passwordsaved']) {
+	        $passwordsaved = html::div(array('class' => 'passwdsaved confirmation'), $this->gettext('passwordsaved'));
+	      }
+
         $out = html::div(array('class' => 'box'),
             html::div(array('id' => 'prefs-title', 'class' => 'boxtitle'), $this->gettext('changepasswd')) .
-            html::div(array('class' => 'boxcontent'), $table->show() .
+            html::div(array('class' => 'boxcontent'), $restricts . $passwordsaved . $table->show() .
             html::p(null,
                 $rcmail->output->button(array(
                     'command' => 'plugin.password-save',

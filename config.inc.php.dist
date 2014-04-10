@@ -10,6 +10,13 @@ $rcmail_config['password_driver'] = 'sql';
 // Default: false.
 $rcmail_config['password_confirm_current'] = true;
 
+// Determine whetherto show password example or not.
+// Default: false.
+$rcmail_config['password_show_example'] = false;
+
+// Define password example
+$rcmail_config['password_example'] = 'PwT.398!';
+
 // Require the new password to be a certain length.
 // set to blank to allow passwords of any length
 $rcmail_config['password_minimum_length'] = 0;
